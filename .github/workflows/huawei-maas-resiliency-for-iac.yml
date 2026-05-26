@@ -56,7 +56,7 @@ jobs:
         run: |
           echo "Score Gate APPROVED: Auto-merging."
           gh pr merge ${{ github.event.pull_request.number }} \
-            --squash \
+            --merge \
             --auto
       - name: Score review - require manual approval
         if: ${{ needs.huawei-mass-run.outputs.decision == 'review' }}
