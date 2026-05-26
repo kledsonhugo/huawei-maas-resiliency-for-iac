@@ -1,0 +1,82 @@
+name: Huawei MaaS Resiliency for IaC
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - staging
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+
+  huawei-mass-run:
+    name: Huawei MaaS Run
+    runs-on: ubuntu-latest
+    environment: ${{ github.head_ref }}
+    if: ${{ github.event.pull_request.head.ref == 'dev' }}
+    env:
+      REPORT_PATH: /tmp/resilience_report.md
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Call Huawei MaaS Endpoint
+        id: resilience
+        env:
+          HW_MAAS_API_KEY: ${{ secrets.HW_MAAS_API_KEY }}
+          HW_MAAS_MODEL: glm-5.1
+          TF_DIR: terraform
+        run: python3 .github/scripts/resilience_check.py
+      - name: Report results into PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f ${{ env.REPORT_PATH }} ]; then
+            gh pr comment ${{ github.event.pull_request.number }} \
+              --body-file ${{ env.REPORT_PATH }}
+          fi
+    outputs:
+      decision: ${{ steps.resilience.outputs.decision }}
+
+  ai-resiliency-score-gate:
+    name: AI Resiliency Score Gate
+    runs-on: ubuntu-latest
+    environment: ${{ github.head_ref }}
+    needs: huawei-mass-run
+    if: ${{ needs.huawei-mass-run.result == 'success' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Score approved - auto-merge
+        if: ${{ needs.huawei-mass-run.outputs.decision == 'approved' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Score Gate APPROVED: Auto-merging."
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --squash \
+            --auto
+      - name: Score review - require manual approval
+        if: ${{ needs.huawei-mass-run.outputs.decision == 'review' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Score Gate REVIEW: Manual approval required."
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "Score Gate REVIEW: Manual approval required."
+      - name: Score rejected
+        if: ${{ needs.huawei-mass-run.outputs.decision == 'rejected' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FAIL_ON_GATE: ${{ vars.FAIL_ON_GATE }}
+        run: |
+          echo "Score Gate REJECTED: See PR for details."
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "Score Gate REJECTED: Resilience score is below the allowed threshold. This PR has been automatically closed. Please address the recommendations in the report above and open a new PR."
+          gh pr close ${{ github.event.pull_request.number }} \
+            --comment "Closed automatically by AI Resiliency Score Gate."
+          if [ ${{ env.FAIL_ON_GATE }} = "true" ]; then 
+            exit 1
+          fi
