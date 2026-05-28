@@ -61,15 +61,49 @@ variable "lb_eip_bandwidth_size" {
 }
 
 variable "ssh_allowed_cidr" {
-  description = "CIDR permitido para acesso SSH"
+  description = "CIDR permitido para acesso SSH. NUNCA use 0.0.0.0/0 em produção."
+  type        = string
+  default     = "10.0.0.0/16"
+
+  validation {
+    condition     = var.ssh_allowed_cidr != "0.0.0.0/0" || var.environment != "production"
+    error_message = "SSH não deve ser exposto para 0.0.0.0/0 em produção. Restrinja a um CIDR específico."
+  }
+}
+
+variable "api_allowed_cidr" {
+  description = "CIDR permitido para acesso à API do Kubernetes. NUNCA use 0.0.0.0/0 em produção."
+  type        = string
+  default     = "10.0.0.0/16"
+
+  validation {
+    condition     = var.api_allowed_cidr != "0.0.0.0/0" || var.environment != "production"
+    error_message = "A API do Kubernetes não deve ser exposta para 0.0.0.0/0 em produção. Restrinja a um CIDR específico."
+  }
+}
+
+variable "nodeport_allowed_cidr" {
+  description = "CIDR permitido para acesso às NodePort services. Restrinja em produção."
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "icmp_allowed_cidr" {
+  description = "CIDR permitido para ICMP (troubleshooting). Restrinja em produção."
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "lb_allowed_cidr" {
+  description = "CIDR permitido para acesso ao Load Balancer (HTTP/HTTPS)."
   type        = string
   default     = "0.0.0.0/0"
 }
 
-variable "api_allowed_cidr" {
-  description = "CIDR permitido para acesso à API do Kubernetes"
-  type        = string
-  default     = "0.0.0.0/0"
+variable "enable_vpc_flow_logs" {
+  description = "Habilita VPC flow logs para auditoria de rede"
+  type        = bool
+  default     = true
 }
 
 variable "environment" {
