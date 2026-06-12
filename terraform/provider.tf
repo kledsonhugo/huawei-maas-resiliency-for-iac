@@ -7,6 +7,17 @@ terraform {
     }
   }
 
+  # Remote state backend with encryption and versioning for production safety
+  backend "s3" {
+    bucket         = "terraform-state-prod"
+    key            = "cce/terraform.tfstate"
+    region         = "sa-brazil-1"
+    endpoint       = "obs.sa-brazil-1.myhuaweicloud.com"
+    encrypt        = true
+    dynamodb_table = "terraform-locks"
+    acl            = "private"
+  }
+
 }
 
 provider "huaweicloud" {
