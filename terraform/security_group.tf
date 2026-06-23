@@ -41,35 +41,111 @@ resource "huaweicloud_networking_secgroup_rule" "sg-cce-ingress-k8s-api" {
 resource "huaweicloud_networking_secgroup_rule" "sg-cce-ingress-node-ports" {
   security_group_id = huaweicloud_networking_secgroup.sg-cce.id
 
-  # 3. NodePort range (30000-32767)
+  # 3. NodePort range (30000-32767) - restrito ao CIDR configurado
   direction        = "ingress"
   ethertype        = "IPv4"
   protocol         = "tcp"
   port_range_min   = 30000
   port_range_max   = 32767
-  remote_ip_prefix = "0.0.0.0/0" # Em produção, ajustar conforme necessário
+  remote_ip_prefix = var.nodeport_allowed_cidr
   description      = "Kubernetes NodePort services"
 }
 
 resource "huaweicloud_networking_secgroup_rule" "sg-cce-ingress-icmp" {
   security_group_id = huaweicloud_networking_secgroup.sg-cce.id
 
-  # 4. ICMP para troubleshooting
+  # 4. ICMP para troubleshooting - restrito ao CIDR configurado
   direction        = "ingress"
   ethertype        = "IPv4"
   protocol         = "icmp"
-  remote_ip_prefix = "0.0.0.0/0" # Em produção, restringir conforme necessário
+  remote_ip_prefix = var.icmp_allowed_cidr
   description      = "ICMP for network troubleshooting"
 }
 
-# Regras de saída (egress) - permitir todo tráfego de saída
-resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-all" {
+# 5. Comunicação interna entre nós do cluster (Kubernetes CNI / etcd / kubelet)
+resource "huaweicloud_networking_secgroup_rule" "sg-cce-ingress-internal-tcp" {
+  security_group_id = huaweicloud_networking_secgroup.sg-cce.id
+
+  direction        = "ingress"
+  ethertype        = "IPv4"
+  protocol         = "tcp"
+  port_range_min   = 1
+  port_range_max   = 65535
+  remote_group_id  = huaweicloud_networking_secgroup.sg-cce.id
+  description      = "Internal TCP communication between cluster nodes"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-cce-ingress-internal-udp" {
+  security_group_id = huaweicloud_networking_secgroup.sg-cce.id
+
+  direction        = "ingress"
+  ethertype        = "IPv4"
+  protocol         = "udp"
+  port_range_min   = 1
+  port_range_max   = 65535
+  remote_group_id  = huaweicloud_networking_secgroup.sg-cce.id
+  description      = "Internal UDP communication between cluster nodes (VXLAN/CNI)"
+}
+
+# Regras de saída (egress) - permitir tráfego de saída para destinos necessários
+resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-https" {
   security_group_id = huaweicloud_networking_secgroup.sg-cce.id
 
   direction        = "egress"
   ethertype        = "IPv4"
+  protocol         = "tcp"
+  port_range_min   = 443
+  port_range_max   = 443
   remote_ip_prefix = "0.0.0.0/0"
-  description      = "Allow all outbound traffic"
+  description      = "Allow outbound HTTPS (API calls, image pulls)"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-dns" {
+  security_group_id = huaweicloud_networking_secgroup.sg-cce.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "udp"
+  port_range_min   = 53
+  port_range_max   = 53
+  remote_ip_prefix = "100.125.1.250/32"
+  description      = "Allow outbound DNS to Huawei Cloud DNS server (primary)"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-dns-secondary" {
+  security_group_id = huaweicloud_networking_secgroup.sg-cce.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "udp"
+  port_range_min   = 53
+  port_range_max   = 53
+  remote_ip_prefix = "100.125.21.250/32"
+  description      = "Allow outbound DNS to Huawei Cloud DNS server (secondary)"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-ntp" {
+  security_group_id = huaweicloud_networking_secgroup.sg-cce.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "udp"
+  port_range_min   = 123
+  port_range_max   = 123
+  remote_ip_prefix = var.ntp_allowed_cidr
+  description      = "Allow outbound NTP for time synchronization"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-internal" {
+  security_group_id = huaweicloud_networking_secgroup.sg-cce.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "tcp"
+  port_range_min   = 1
+  port_range_max   = 65535
+  remote_group_id  = huaweicloud_networking_secgroup.sg-cce.id
+  description      = "Allow outbound traffic to other cluster nodes"
 }
 
 # Security Group adicional para Load Balancer (opcional)
@@ -92,7 +168,7 @@ resource "huaweicloud_networking_secgroup_rule" "sg-lb-ingress-http" {
   protocol         = "tcp"
   port_range_min   = 80
   port_range_max   = 80
-  remote_ip_prefix = "0.0.0.0/0"
+  remote_ip_prefix = var.lb_allowed_cidr
   description      = "HTTP access"
 }
 
@@ -104,6 +180,43 @@ resource "huaweicloud_networking_secgroup_rule" "sg-lb-ingress-https" {
   protocol         = "tcp"
   port_range_min   = 443
   port_range_max   = 443
-  remote_ip_prefix = "0.0.0.0/0"
+  remote_ip_prefix = var.lb_allowed_cidr
   description      = "HTTPS access"
+}
+
+# Egress restrito para o Load Balancer - apenas tráfego necessário
+resource "huaweicloud_networking_secgroup_rule" "sg-lb-egress-internal" {
+  security_group_id = huaweicloud_networking_secgroup.sg-lb.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "tcp"
+  port_range_min   = 1
+  port_range_max   = 65535
+  remote_group_id  = huaweicloud_networking_secgroup.sg-cce.id
+  description      = "Allow outbound traffic to CCE cluster nodes"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-lb-egress-dns" {
+  security_group_id = huaweicloud_networking_secgroup.sg-lb.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "udp"
+  port_range_min   = 53
+  port_range_max   = 53
+  remote_ip_prefix = "100.125.1.250/32"
+  description      = "Allow outbound DNS to Huawei Cloud DNS server (primary)"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-lb-egress-dns-secondary" {
+  security_group_id = huaweicloud_networking_secgroup.sg-lb.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "udp"
+  port_range_min   = 53
+  port_range_max   = 53
+  remote_ip_prefix = "100.125.21.250/32"
+  description      = "Allow outbound DNS to Huawei Cloud DNS server (secondary)"
 }
