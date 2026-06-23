@@ -43,9 +43,14 @@ variable "node_count" {
 }
 
 variable "kubernetes_version" {
-  description = "Versão do Kubernetes"
+  description = "Versão do Kubernetes. Use versões suportadas (v1.28+)."
   type        = string
-  default     = "v1.25"
+  default     = "v1.28"
+
+  validation {
+    condition     = can(regex("^v1\\.(2[8-9]|[3-9][0-9])", var.kubernetes_version))
+    error_message = "Versão do Kubernetes deve ser v1.28 ou superior. Versões anteriores estão EOL e possuem vulnerabilidades conhecidas."
+  }
 }
 
 variable "eip_bandwidth_size" {
@@ -83,21 +88,47 @@ variable "api_allowed_cidr" {
 }
 
 variable "nodeport_allowed_cidr" {
-  description = "CIDR permitido para acesso às NodePort services. Restrinja em produção."
+  description = "CIDR permitido para acesso às NodePort services. NUNCA use 0.0.0.0/0 em produção."
   type        = string
   default     = "10.0.0.0/16"
+
+  validation {
+    condition     = var.nodeport_allowed_cidr != "0.0.0.0/0" || var.environment != "production"
+    error_message = "NodePorts não devem ser expostos para 0.0.0.0/0 em produção. Restrinja a um CIDR específico."
+  }
 }
 
 variable "icmp_allowed_cidr" {
-  description = "CIDR permitido para ICMP (troubleshooting). Restrinja em produção."
+  description = "CIDR permitido para ICMP (troubleshooting). NUNCA use 0.0.0.0/0 em produção."
   type        = string
   default     = "10.0.0.0/16"
+
+  validation {
+    condition     = var.icmp_allowed_cidr != "0.0.0.0/0" || var.environment != "production"
+    error_message = "ICMP não deve ser exposto para 0.0.0.0/0 em produção. Restrinja a um CIDR específico."
+  }
 }
 
 variable "lb_allowed_cidr" {
-  description = "CIDR permitido para acesso ao Load Balancer (HTTP/HTTPS)."
+  description = "CIDR permitido para acesso ao Load Balancer (HTTP/HTTPS). Em produção, restrinja a um CIDR específico."
   type        = string
   default     = "0.0.0.0/0"
+
+  validation {
+    condition     = var.lb_allowed_cidr != "0.0.0.0/0" || var.environment != "production"
+    error_message = "O Load Balancer não deve ser exposto para 0.0.0.0/0 em produção. Restrinja a um CIDR específico."
+  }
+}
+
+variable "ntp_allowed_cidr" {
+  description = "CIDR permitido para acesso NTP (sincronização de horário). Restrinja em produção."
+  type        = string
+  default     = "0.0.0.0/0"
+
+  validation {
+    condition     = var.ntp_allowed_cidr != "0.0.0.0/0" || var.environment != "production"
+    error_message = "NTP não deve ser aberto para 0.0.0.0/0 em produção. Use servidores NTP específicos."
+  }
 }
 
 variable "enable_vpc_flow_logs" {

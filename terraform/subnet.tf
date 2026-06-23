@@ -70,6 +70,85 @@ resource "huaweicloud_network_acl" "acl-cce" {
   }
 }
 
+# Network ACL para a subnet de alta disponibilidade (defense-in-depth)
+resource "huaweicloud_network_acl" "acl-cce-ha" {
+  name        = "acl-cce-ha"
+  description = "Network ACL for CCE HA subnet - defense in depth"
+
+  ingress_rules = [
+    {
+      rule_id   = huaweicloud_network_acl_rule.acl-ha-ingress-internal.id
+    },
+  ]
+
+  egress_rules = [
+    {
+      rule_id   = huaweicloud_network_acl_rule.acl-ha-egress-https.id
+    },
+    {
+      rule_id   = huaweicloud_network_acl_rule.acl-ha-egress-dns.id
+    },
+    {
+      rule_id   = huaweicloud_network_acl_rule.acl-ha-egress-internal.id
+    },
+  ]
+
+  subnets = [huaweicloud_vpc_subnet.subnet-cce-ha.id]
+
+  tags = {
+    environment = var.environment
+    component   = "cce-cluster"
+    purpose     = "high-availability"
+    managed-by  = "terraform"
+  }
+}
+
+# HA ACL Ingress Rules
+resource "huaweicloud_network_acl_rule" "acl-ha-ingress-internal" {
+  name             = "acl-ha-ingress-internal"
+  description      = "Allow internal VPC traffic to HA subnet"
+  direction        = "ingress"
+  protocol         = "tcp"
+  source_ip_address = var.vpc_cidr
+  destination_port = "1-65535"
+  action           = "allow"
+  enabled          = true
+}
+
+# HA ACL Egress Rules
+resource "huaweicloud_network_acl_rule" "acl-ha-egress-https" {
+  name             = "acl-ha-egress-https"
+  description      = "Allow outbound HTTPS from HA subnet"
+  direction        = "egress"
+  protocol         = "tcp"
+  destination_ip_address = "0.0.0.0/0"
+  destination_port = "443"
+  action           = "allow"
+  enabled          = true
+}
+
+resource "huaweicloud_network_acl_rule" "acl-ha-egress-dns" {
+  name             = "acl-ha-egress-dns"
+  description      = "Allow outbound DNS from HA subnet"
+  direction        = "egress"
+  protocol         = "udp"
+  destination_ip_address = "0.0.0.0/0"
+  destination_port = "53"
+  action           = "allow"
+  enabled          = true
+}
+
+resource "huaweicloud_network_acl_rule" "acl-ha-egress-internal" {
+  name             = "acl-ha-egress-internal"
+  description      = "Allow outbound to VPC from HA subnet"
+  direction        = "egress"
+  protocol         = "tcp"
+  destination_ip_address = var.vpc_cidr
+  destination_port = "1-65535"
+  action           = "allow"
+  enabled          = true
+}
+
 # ACL Ingress Rules
 resource "huaweicloud_network_acl_rule" "acl-ingress-ssh" {
   name             = "acl-ingress-ssh"

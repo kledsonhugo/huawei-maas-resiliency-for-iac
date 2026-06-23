@@ -108,8 +108,32 @@ resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-dns" {
   protocol         = "udp"
   port_range_min   = 53
   port_range_max   = 53
-  remote_ip_prefix = "0.0.0.0/0"
-  description      = "Allow outbound DNS resolution"
+  remote_ip_prefix = "100.125.1.250/32"
+  description      = "Allow outbound DNS to Huawei Cloud DNS server (primary)"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-dns-secondary" {
+  security_group_id = huaweicloud_networking_secgroup.sg-cce.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "udp"
+  port_range_min   = 53
+  port_range_max   = 53
+  remote_ip_prefix = "100.125.21.250/32"
+  description      = "Allow outbound DNS to Huawei Cloud DNS server (secondary)"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-ntp" {
+  security_group_id = huaweicloud_networking_secgroup.sg-cce.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "udp"
+  port_range_min   = 123
+  port_range_max   = 123
+  remote_ip_prefix = var.ntp_allowed_cidr
+  description      = "Allow outbound NTP for time synchronization"
 }
 
 resource "huaweicloud_networking_secgroup_rule" "sg-cce-egress-internal" {
@@ -181,6 +205,18 @@ resource "huaweicloud_networking_secgroup_rule" "sg-lb-egress-dns" {
   protocol         = "udp"
   port_range_min   = 53
   port_range_max   = 53
-  remote_ip_prefix = "0.0.0.0/0"
-  description      = "Allow outbound DNS resolution"
+  remote_ip_prefix = "100.125.1.250/32"
+  description      = "Allow outbound DNS to Huawei Cloud DNS server (primary)"
+}
+
+resource "huaweicloud_networking_secgroup_rule" "sg-lb-egress-dns-secondary" {
+  security_group_id = huaweicloud_networking_secgroup.sg-lb.id
+
+  direction        = "egress"
+  ethertype        = "IPv4"
+  protocol         = "udp"
+  port_range_min   = 53
+  port_range_max   = 53
+  remote_ip_prefix = "100.125.21.250/32"
+  description      = "Allow outbound DNS to Huawei Cloud DNS server (secondary)"
 }

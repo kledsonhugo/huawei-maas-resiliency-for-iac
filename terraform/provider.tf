@@ -22,4 +22,7 @@ terraform {
 
 provider "huaweicloud" {
   region = var.region
+
+  # Security best practices
+  insecure = false  # Explicitly disable insecure HTTP connections
 }
