@@ -26,7 +26,7 @@ jobs:
         id: resilience
         env:
           HW_MAAS_API_KEY: ${{ secrets.HW_MAAS_API_KEY }}
-          HW_MAAS_MODEL: glm-5.1
+          HW_MAAS_MODEL: glm-5.2
           TF_DIR: terraform
         run: python3 .github/scripts/resilience_check.py
       - name: Report results into PR comment
