@@ -178,13 +178,13 @@ def main():
 
     github_output = os.environ.get("GITHUB_OUTPUT", "")
 
-    if score >= 5:
+    if score >= 80:
         print(f"Quality Gate PASSED - Score: {score}/100")
         print("decision=approved")
         if github_output:
             with open(github_output, "a") as f:
                 f.write("decision=approved\n")
-    elif score >= 10:
+    elif score >= 60:
         print(f"Quality Gate PASSED WITH REVIEW - Score: {score}/100")
         print("decision=review")
         if github_output:
