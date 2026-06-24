@@ -261,26 +261,22 @@ variable "enable_cts" {
   default     = true
 }
 
-# ─── Production Guards for NodePort and ICMP ───
+# ─── Additional Configuration ───
 
-variable "nodeport_allowed_cidr" {
-  description = "CIDR permitido para acesso às NodePort services. NUNCA use 0.0.0.0/0 em produção."
+variable "lb_certificate_id" {
+  description = "ID do certificado ELB para HTTPS termination. Deve ser provisionado previamente no ELB service."
   type        = string
-  default     = "10.0.0.0/16"
-
-  validation {
-    condition     = var.nodeport_allowed_cidr != "0.0.0.0/0" || var.environment != "production"
-    error_message = "NodePort não deve ser exposto para 0.0.0.0/0 em produção. Restrinja a um CIDR específico."
-  }
+  default     = ""
 }
 
-variable "icmp_allowed_cidr" {
-  description = "CIDR permitido para ICMP (troubleshooting). NUNCA use 0.0.0.0/0 em produção."
+variable "health_check_path" {
+  description = "Path para health check do backend no Load Balancer"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "/healthz"
+}
 
-  validation {
-    condition     = var.icmp_allowed_cidr != "0.0.0.0/0" || var.environment != "production"
-    error_message = "ICMP não deve ser exposto para 0.0.0.0/0 em produção. Restrinja a um CIDR específico."
-  }
+variable "health_check_port" {
+  description = "Porta para health check do backend no Load Balancer"
+  type        = number
+  default     = 8080
 }
